@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -24,6 +25,20 @@ import (
 func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx rcontext.RequestContext) (*http.Response, error) {
 	var client *http.Client
 
+	proxy := http.ProxyFromEnvironment;
+
+	var proxyUrl *url.URL
+	if len(ctx.Config.UrlPreviews.Proxy) > 0 {
+		var err error
+		proxyUrl, err = url.Parse(ctx.Config.UrlPreviews.Proxy);
+
+		if err != nil {
+			return nil, err
+		}
+
+		proxy = http.ProxyURL(proxyUrl);
+	}
+
 	dialer := &net.Dialer{
 		Timeout:   time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
 		KeepAlive: time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
@@ -35,9 +50,12 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 			return nil, errors.New("invalid network: expected tcp")
 		}
 
-		_, _, err := acl.GetSafeAddress(addr, ctx)
-		if err != nil {
-			return nil, err
+		// always allow connecting to proxy address
+		if proxyUrl == nil || addr != proxyUrl.Host {
+			_, _, err := acl.GetSafeAddress(addr, ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return dialer.DialContext(ctx, network, addr)
@@ -48,6 +66,7 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 		tr := &http.Transport{
 			DisableKeepAlives: true,
 			DialContext:       dialContext,
+			Proxy:             proxy,
 			TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
 			// Based on https://github.com/matrix-org/gomatrixserverlib/blob/51152a681e69a832efcd934b60080b92bc98b286/client.go#L74-L90
 			DialTLS: func(network, addr string) (net.Conn, error) {
@@ -76,6 +95,7 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 			Transport: &http.Transport{
 				DisableKeepAlives: true,
 				DialContext:       dialContext,
+				Proxy:             proxy,
 			},
 		}
 	}

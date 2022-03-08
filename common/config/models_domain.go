@@ -67,6 +67,7 @@ type UrlPreviewsConfig struct {
 	DefaultLanguage    string   `yaml:"defaultLanguage"`
 	UserAgent          string   `yaml:"userAgent"`
 	OEmbed             bool     `yaml:"oEmbed"`
+	Proxy              string   `yaml:"proxy"`
 }
 
 type IdenticonsConfig struct {

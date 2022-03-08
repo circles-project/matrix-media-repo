@@ -75,6 +75,7 @@ func NewDefaultMainConfig() MainRepoConfig {
 				DefaultLanguage: "en-US,en",
 				UserAgent:       "matrix-media-repo",
 				OEmbed:          false,
+				Proxy:           "",
 			},
 			NumWorkers: 10,
 			ExpireDays: 0,
