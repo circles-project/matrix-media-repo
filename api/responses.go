@@ -61,3 +61,11 @@ func QuotaExceeded() *ErrorResponse {
 func ServiceUnavailable() *ErrorResponse {
 	return &ErrorResponse{common.ErrCodeServiceUnavailable, "Service unavailable", common.ErrCodeServiceUnavailable}
 }
+
+func CannotOverwriteMedia() *ErrorResponse {
+	return &ErrorResponse{common.ErrCodeCannotOverwriteMedia, "Cannot overwrite media", common.ErrCodeCannotOverwriteMedia}
+}
+
+func NotYetUploaded() *ErrorResponse {
+	return &ErrorResponse{common.ErrCodeNotYetUploaded, "Media not yet uploaded", common.ErrCodeNotYetUploaded}
+}

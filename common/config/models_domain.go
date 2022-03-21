@@ -89,6 +89,7 @@ type TimeoutsConfig struct {
 
 type FeatureConfig struct {
 	MSC2448Blurhash MSC2448Config `yaml:"MSC2448"`
+	MSC2246Async    MSC2246Config `yaml:"MSC2246"`
 	IPFS            IPFSConfig    `yaml:"IPFS"`
 	Redis           RedisConfig   `yaml:"redis"`
 }
@@ -102,6 +103,12 @@ type MSC2448Config struct {
 	XComponents     int  `yaml:"xComponents"`
 	YComponents     int  `yaml:"yComponents"`
 	Punch           int  `yaml:"punch"`
+}
+
+type MSC2246Config struct {
+	Enabled                      bool `yaml:"enabled"`
+	AsyncUploadExpirySecs        int  `yaml:"asyncUploadExpirySecs"`
+	AsyncDownloadDefaultWaitSecs int  `yaml:"asyncDownloadDefaultWaitSecs"`
 }
 
 type IPFSConfig struct {
