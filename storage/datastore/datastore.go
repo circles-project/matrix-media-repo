@@ -2,12 +2,12 @@ package datastore
 
 import (
 	"fmt"
-	"github.com/getsentry/sentry-go"
-	"github.com/turt2live/matrix-media-repo/common"
 	"io"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/turt2live/matrix-media-repo/common"
 	"github.com/turt2live/matrix-media-repo/common/config"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
 	"github.com/turt2live/matrix-media-repo/storage"
@@ -54,6 +54,24 @@ func DownloadStream(ctx rcontext.RequestContext, datastoreId string, location st
 		return nil, err
 	}
 	return ref.DownloadFile(location)
+}
+
+func GetDownloadURL(ctx rcontext.RequestContext, datastoreId string, location string, filename string) (string, error) {
+	ref, err := LocateDatastore(ctx, datastoreId)
+	if err != nil {
+		return "", err
+	}
+
+	return ref.GetDownloadURL(location, filename)
+}
+
+func ShouldRedirectDownload(ctx rcontext.RequestContext, datastoreId string) bool {
+	ref, err := LocateDatastore(ctx, datastoreId)
+	if err != nil {
+		return false
+	}
+
+	return ref.ShouldRedirectDownload()
 }
 
 func GetDatastoreConfig(ds *types.Datastore) (config.DatastoreConfig, error) {

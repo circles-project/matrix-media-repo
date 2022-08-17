@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/minio/minio-go/v6"
 	"github.com/pkg/errors"
@@ -228,6 +230,20 @@ func (s *s3Datastore) DeleteObject(location string) error {
 func (s *s3Datastore) DownloadObject(location string) (io.ReadCloser, error) {
 	logrus.Info("Downloading object from bucket ", s.bucket, ": ", location)
 	return s.client.GetObject(s.bucket, location, minio.GetObjectOptions{})
+}
+
+func (s *s3Datastore) GetDownloadURL(location string, filename string) (string, error) {
+	logrus.Info("getting pre-signed download URL for object from bucket ", s.bucket, ": ", location)
+
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+
+	u, err := s.client.PresignedGetObject(s.bucket, location, time.Minute*5, reqParams)
+	if err != nil {
+		return "", err
+	}
+
+	return u.String(), nil
 }
 
 func (s *s3Datastore) ObjectExists(location string) bool {

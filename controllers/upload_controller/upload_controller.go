@@ -202,7 +202,6 @@ func UploadMedia(contents io.ReadCloser, contentLength int64, contentType string
 				ctx.Log.Warn("Unexpected error trying to notify cache about media: " + err.Error())
 			}
 		}
-
 	}
 	return m, err
 }

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/sirupsen/logrus"
 	config2 "github.com/turt2live/matrix-media-repo/common/config"
@@ -88,6 +89,19 @@ func (d *DatastoreRef) DownloadFile(location string) (io.ReadCloser, error) {
 	}
 }
 
+func (d *DatastoreRef) GetDownloadURL(location string, filename string) (string, error) {
+	if d.Type != "s3" {
+		logrus.Error("attempting to get an download URL but datasource is of type ", d.Type)
+		return "", errors.New("download URLs unsupported for non-s3 datastores")
+	}
+
+	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
+	if err != nil {
+		return "", err
+	}
+	return s3.GetDownloadURL(location, filename)
+}
+
 func (d *DatastoreRef) ObjectExists(location string) bool {
 	if d.Type == "file" {
 		ok, err := util.FileExists(path.Join(d.Uri, location))
@@ -127,4 +141,14 @@ func (d *DatastoreRef) OverwriteObject(location string, stream io.ReadCloser, ct
 	} else {
 		return errors.New("unknown datastore type")
 	}
+}
+
+func (d *DatastoreRef) ShouldRedirectDownload() bool {
+	if d.Type != "s3" {
+		return false
+	}
+
+	redirectDownloads, _ := strconv.ParseBool(d.config.Options["redirectDownloads"])
+	return redirectDownloads
+
 }

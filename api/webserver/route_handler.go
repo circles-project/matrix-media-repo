@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/getsentry/sentry-go"
 	"io"
 	"io/ioutil"
 	"math"
@@ -18,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/alioygur/is"
+	"github.com/getsentry/sentry-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sebest/xff"
 	"github.com/sirupsen/logrus"
@@ -373,6 +373,15 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", "")   // We're serving HTML, so take away the CSP
 		w.Header().Set("X-Content-Security-Policy", "") // We're serving HTML, so take away the CSP
 		io.Copy(w, bytes.NewBuffer([]byte(result.HTML)))
+		return
+	case *r0.Redirect:
+		metrics.HttpResponses.With(prometheus.Labels{
+			"host":       r.Host,
+			"action":     h.action,
+			"method":     r.Method,
+			"statusCode": strconv.Itoa(result.Status),
+		}).Inc()
+		http.Redirect(w, r, result.URL, result.Status)
 		return
 	default:
 		break

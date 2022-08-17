@@ -40,6 +40,7 @@ type MinimalMedia struct {
 	ContentType string
 	SizeBytes   int64
 	KnownMedia  *Media
+	URL         string
 }
 
 type MinimalMediaMetadata struct {
