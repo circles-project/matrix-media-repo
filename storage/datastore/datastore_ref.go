@@ -1,12 +1,14 @@
 package datastore
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
 	"path"
 	"strconv"
 
+	"github.com/minio/minio-go/v6"
 	"github.com/sirupsen/logrus"
 	config2 "github.com/turt2live/matrix-media-repo/common/config"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
@@ -16,6 +18,8 @@ import (
 	"github.com/turt2live/matrix-media-repo/types"
 	"github.com/turt2live/matrix-media-repo/util"
 )
+
+var ErrS3Required = errors.New("download URLs unsupported for non-s3 datastores")
 
 type DatastoreRef struct {
 	// TODO: Don't blindly copy properties from types.Datastore
@@ -35,6 +39,25 @@ func newDatastoreRef(ds *types.Datastore, config config2.DatastoreConfig) *Datas
 		datastore:   ds,
 		config:      config,
 	}
+}
+
+func (d *DatastoreRef) GetUploadURL(ctx rcontext.RequestContext) (string, string, error) {
+	if d.Type != "s3" {
+		logrus.Error("attempting to get an upload URL but datasource is of type ", d.Type)
+		return "", "", ErrS3Required
+	}
+
+	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
+	if err != nil {
+		return "", "", err
+	}
+
+	uploadURL, objectName, err := s3.GetUploadURL(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	return uploadURL, objectName, nil
 }
 
 func (d *DatastoreRef) UploadFile(file io.ReadCloser, expectedLength int64, ctx rcontext.RequestContext) (*types.ObjectInfo, error) {
@@ -89,17 +112,17 @@ func (d *DatastoreRef) DownloadFile(location string) (io.ReadCloser, error) {
 	}
 }
 
-func (d *DatastoreRef) GetDownloadURL(location string, filename string) (string, error) {
+func (d *DatastoreRef) GetDownloadURL(ctx rcontext.RequestContext, location string, filename string) (string, error) {
 	if d.Type != "s3" {
 		logrus.Error("attempting to get an download URL but datasource is of type ", d.Type)
-		return "", errors.New("download URLs unsupported for non-s3 datastores")
+		return "", ErrS3Required
 	}
 
 	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
 	if err != nil {
 		return "", err
 	}
-	return s3.GetDownloadURL(location, filename)
+	return s3.GetDownloadURL(ctx, location, filename)
 }
 
 func (d *DatastoreRef) ObjectExists(location string) bool {
@@ -122,6 +145,18 @@ func (d *DatastoreRef) ObjectExists(location string) bool {
 	} else {
 		panic("unknown datastore type")
 	}
+}
+
+func (d *DatastoreRef) ObjectInfo(ctx context.Context, location string) (minio.ObjectInfo, error) {
+	if d.Type != "s3" {
+		return minio.ObjectInfo{}, ErrS3Required
+	}
+
+	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+	return s3.GetObjectInfo(ctx, location)
 }
 
 func (d *DatastoreRef) OverwriteObject(location string, stream io.ReadCloser, ctx rcontext.RequestContext) error {
@@ -150,5 +185,13 @@ func (d *DatastoreRef) ShouldRedirectDownload() bool {
 
 	redirectDownloads, _ := strconv.ParseBool(d.config.Options["redirectDownloads"])
 	return redirectDownloads
+}
 
+func (d *DatastoreRef) ShouldRedirectUpload() bool {
+	if d.Type != "s3" {
+		return false
+	}
+
+	redirectUploads, _ := strconv.ParseBool(d.config.Options["redirectUploads"])
+	return redirectUploads
 }

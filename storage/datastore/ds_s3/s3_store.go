@@ -1,6 +1,7 @@
 package ds_s3
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -137,15 +138,38 @@ func (s *s3Datastore) EnsureTempPathExists() error {
 	return nil
 }
 
+func (s s3Datastore) generateObjectKey() (string, error) {
+	objectKey, err := util.GenerateRandomString(512)
+	if err != nil {
+		return "", err
+	}
+
+	return objectKey[:s.prefixLength] + "/" + objectKey[s.prefixLength:], nil
+}
+
+func (s *s3Datastore) GetUploadURL(ctx rcontext.RequestContext) (string, string, error) {
+	objectName, err := s.generateObjectKey()
+	if err != nil {
+		return "", "", err
+	}
+
+	expiryTime := time.Duration(ctx.Config.Features.MSC2246Async.AsyncUploadExpirySecs) * time.Second
+
+	u, err := s.client.PresignedPutObject(s.bucket, objectName, expiryTime)
+	if err != nil {
+		return "", "", err
+	}
+
+	return u.String(), objectName, nil
+}
+
 func (s *s3Datastore) UploadFile(file io.ReadCloser, expectedLength int64, ctx rcontext.RequestContext) (*types.ObjectInfo, error) {
 	defer cleanup.DumpAndCloseStream(file)
 
-	objectKey, err := util.GenerateRandomString(512)
+	objectName, err := s.generateObjectKey()
 	if err != nil {
 		return nil, err
 	}
-
-	objectName := objectKey[:s.prefixLength] + "/" + objectKey[s.prefixLength:]
 
 	var rs3 io.ReadCloser
 	var ws3 io.WriteCloser
@@ -232,18 +256,24 @@ func (s *s3Datastore) DownloadObject(location string) (io.ReadCloser, error) {
 	return s.client.GetObject(s.bucket, location, minio.GetObjectOptions{})
 }
 
-func (s *s3Datastore) GetDownloadURL(location string, filename string) (string, error) {
+func (s *s3Datastore) GetDownloadURL(ctx rcontext.RequestContext, location string, filename string) (string, error) {
 	logrus.Info("getting pre-signed download URL for object from bucket ", s.bucket, ": ", location)
 
 	reqParams := make(url.Values)
 	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
-	u, err := s.client.PresignedGetObject(s.bucket, location, time.Minute*5, reqParams)
+	expiryTime := time.Duration(ctx.Config.Features.MSC2246Async.AsyncUploadExpirySecs) * time.Second
+
+	u, err := s.client.PresignedGetObject(s.bucket, location, expiryTime, reqParams)
 	if err != nil {
 		return "", err
 	}
 
 	return u.String(), nil
+}
+
+func (s *s3Datastore) GetObjectInfo(ctx context.Context, location string) (minio.ObjectInfo, error) {
+	return s.client.StatObjectWithContext(ctx, s.bucket, location, minio.StatObjectOptions{})
 }
 
 func (s *s3Datastore) ObjectExists(location string) bool {

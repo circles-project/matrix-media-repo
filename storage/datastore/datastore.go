@@ -62,7 +62,7 @@ func GetDownloadURL(ctx rcontext.RequestContext, datastoreId string, location st
 		return "", err
 	}
 
-	return ref.GetDownloadURL(location, filename)
+	return ref.GetDownloadURL(ctx, location, filename)
 }
 
 func ShouldRedirectDownload(ctx rcontext.RequestContext, datastoreId string) bool {

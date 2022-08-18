@@ -1,13 +1,13 @@
 package r0
 
 import (
-	"github.com/getsentry/sentry-go"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/api"
@@ -15,7 +15,10 @@ import (
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
 	"github.com/turt2live/matrix-media-repo/controllers/info_controller"
 	"github.com/turt2live/matrix-media-repo/controllers/upload_controller"
+	"github.com/turt2live/matrix-media-repo/internal_cache"
 	"github.com/turt2live/matrix-media-repo/quota"
+	"github.com/turt2live/matrix-media-repo/storage"
+	"github.com/turt2live/matrix-media-repo/storage/datastore"
 	"github.com/turt2live/matrix-media-repo/util"
 	"github.com/turt2live/matrix-media-repo/util/cleanup"
 )
@@ -28,13 +31,30 @@ type MediaUploadedResponse struct {
 type MediaCreatedResponse struct {
 	ContentUri      string `json:"content_uri"`
 	UnusedExpiresAt int64  `json:"unused_expires_at"`
+	UploadURL       string `json:"upload_url,omitempty"`
 }
 
 func CreateMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserInfo) interface{} {
-	media, _, err := upload_controller.CreateMedia(r.Host, rctx)
+	media, ds, err := upload_controller.CreateMedia(r.Host, rctx)
 	if err != nil {
 		rctx.Log.Error("Unexpected error creating media reference: " + err.Error())
 		return api.InternalServerError("Unexpected Error")
+	}
+
+	uploadURL := ""
+	if ds.ShouldRedirectUpload() {
+		rctx.Log.Debug("getting pre-signed upload URL")
+		var location string
+		uploadURL, location, err = ds.GetUploadURL(rctx)
+		if err != nil {
+			rctx.Log.Error("error getting pre-signed upload URL: ", err)
+			uploadURL = "" // just in case
+		} else {
+			rctx.Log.Debug("got upload URL: ", uploadURL)
+			media.Location = location
+		}
+	} else {
+		rctx.Log.Debug("not redirecting upload")
 	}
 
 	if err = upload_controller.PersistMedia(media, user.UserId, rctx); err != nil {
@@ -45,6 +65,97 @@ func CreateMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserInf
 	return &MediaCreatedResponse{
 		ContentUri:      media.MxcUri(),
 		UnusedExpiresAt: time.Now().Unix() + int64(rctx.Config.Features.MSC2246Async.AsyncUploadExpirySecs),
+		UploadURL:       uploadURL,
+	}
+}
+
+func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.UserInfo) interface{} {
+	params := mux.Vars(r)
+	server := params["server"]
+	mediaId := params["mediaId"]
+
+	defer cleanup.DumpAndCloseStream(r.Body)
+
+	rctx = rctx.LogWithFields(logrus.Fields{
+		"server":  server,
+		"mediaId": mediaId,
+	})
+
+	rctx.Log.Debug("handling upload complete callback")
+
+	if server != "" && (!util.IsServerOurs(server) || server != r.Host) {
+		rctx.Log.Debug("got upload_complete for media from a different server, 404ing")
+		return api.NotFoundError()
+	}
+
+	db := storage.GetDatabase().GetMediaStore(rctx)
+
+	media, err := db.Get(server, mediaId)
+	if err != nil {
+		rctx.Log.Debug("got upload_complete for media that isn't in db, 404ing")
+		return api.NotFoundError()
+	}
+
+	if media.Location == "" {
+		rctx.Log.Warn("received upload_complete for a media with no location")
+		return api.NotFoundError()
+	}
+
+	if media.SizeBytes > 0 {
+		rctx.Log.Info("received upload_complete for a media which already has a size set, not re-scanning")
+		return struct{}{}
+	}
+
+	ds, err := datastore.LocateDatastore(rctx, media.DatastoreId)
+	if err != nil {
+		rctx.Log.Warn("error getting datasource for upload_complete: ", err)
+		return api.InternalServerError("unexpected error processing upload")
+	}
+
+	info, err := ds.ObjectInfo(rctx, media.Location)
+	if err != nil {
+		rctx.Log.Error("error getting info about object for upload_complete: ", err)
+		return api.InternalServerError("unexpected error processing upload")
+	}
+
+	media.ContentType = info.ContentType
+	media.SizeBytes = info.Size
+
+	go func() {
+		// Download the file to get the hash
+		f, err := ds.DownloadFile(media.Location)
+		if err != nil {
+			rctx.Log.Error("error getting uploaded file for upload_complete: ", err)
+			return
+		}
+		defer f.Close()
+
+		hash, err := util.GetSha256HashOfStream(f)
+		if err != nil {
+			rctx.Log.Error("error hashing uploaded file: ", err)
+			return
+		}
+
+		media.Sha256Hash = hash
+
+		// db variable used in parent function will have a cancelled context by the time we get here
+		outOfContextDB := storage.GetDatabase().GetMediaStore(rcontext.Initial())
+		if err := outOfContextDB.Update(media); err != nil {
+			rctx.Log.Error("error updating media entry in db: ", err)
+			return
+		}
+	}()
+
+	util.NotifyUpload(server, mediaId)
+
+	if err := internal_cache.Get().NotifyUpload(server, mediaId, rctx); err != nil {
+		rctx.Log.Warn("Unexpected error trying to notify cache about media: " + err.Error())
+	}
+
+	rctx.Log.Debug("finished handling upload_complete")
+
+	return &MediaUploadedResponse{
+		ContentUri: media.MxcUri(),
 	}
 }
 

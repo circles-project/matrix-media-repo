@@ -3,8 +3,6 @@ package webserver
 import (
 	"context"
 	"encoding/json"
-	"github.com/getsentry/sentry-go"
-	sentryhttp "github.com/getsentry/sentry-go/http"
 	"net"
 	"net/http"
 	"os"
@@ -14,6 +12,8 @@ import (
 	"time"
 
 	"github.com/didip/tollbooth"
+	"github.com/getsentry/sentry-go"
+	sentryhttp "github.com/getsentry/sentry-go/http"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/api"
@@ -45,6 +45,7 @@ func Init() *sync.WaitGroup {
 
 	optionsHandler := handler{api.EmptyResponseHandler, "options_request", counter, false}
 	createHandler := handler{api.AccessTokenRequiredRoute(r0.CreateMedia), "create", counter, false}
+	uploadCompleteHandler := handler{api.AccessTokenRequiredRoute(r0.UploadComplete), "upload_complete", counter, false}
 	uploadHandler := handler{api.AccessTokenRequiredRoute(r0.UploadMedia), "upload", counter, false}
 	downloadHandler := handler{api.AccessTokenOptionalRoute(r0.DownloadMedia), "download", counter, false}
 	thumbnailHandler := handler{api.AccessTokenOptionalRoute(r0.ThumbnailMedia), "thumbnail", counter, false}
@@ -162,6 +163,7 @@ func Init() *sync.WaitGroup {
 	if config.Get().Features.MSC2246Async.Enabled {
 		logrus.Info("Asynchronous uploads (MSC2246) enabled")
 		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/create", route{"POST", createHandler}})
+		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/upload/{server:[a-zA-Z0-9.:\\-_]+}/{mediaId:[^/]+}/complete", route{"POST", uploadCompleteHandler}})
 		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/upload/{server:[a-zA-Z0-9.:\\-_]+}/{mediaId:[^/]+}", route{"PUT", uploadHandler}})
 	}
 
