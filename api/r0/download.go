@@ -12,7 +12,6 @@ import (
 	"github.com/turt2live/matrix-media-repo/common"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
 	"github.com/turt2live/matrix-media-repo/controllers/download_controller"
-	"github.com/turt2live/matrix-media-repo/storage"
 	"github.com/turt2live/matrix-media-repo/storage/datastore"
 )
 
@@ -78,15 +77,16 @@ func DownloadMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserI
 		"allowRemote": downloadRemote,
 	})
 
-	db := storage.GetDatabase().GetMediaStore(rctx)
-	dbMedia, err := db.Get(server, mediaId)
+	media, err := download_controller.FindMediaRecord(server, mediaId, downloadRemote, asyncWaitMs, rctx)
 	if err != nil {
+		logrus.Debug("error finding requested media in database")
 		return handleDownloadError(rctx, err)
 	}
 
-	if allowRedirect && datastore.ShouldRedirectDownload(rctx, dbMedia.DatastoreId) {
+	if allowRedirect && datastore.ShouldRedirectDownload(rctx, media.DatastoreId) {
 		media, err := download_controller.GetMediaURL(server, mediaId, filename, downloadRemote, false, asyncWaitMs, rctx)
 		if err != nil {
+			logrus.Debug("error generating pre-signed download URL for media")
 			return handleDownloadError(rctx, err)
 		}
 
@@ -97,6 +97,7 @@ func DownloadMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserI
 	} else {
 		streamedMedia, err := download_controller.GetMedia(server, mediaId, downloadRemote, false, asyncWaitMs, rctx)
 		if err != nil {
+			logrus.Debug("error getting stored media")
 			return handleDownloadError(rctx, err)
 		}
 
