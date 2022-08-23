@@ -36,6 +36,7 @@ func DownloadMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserI
 	mediaId := params["mediaId"]
 	filename := params["filename"]
 	allowRemote := r.URL.Query().Get("allow_remote")
+	allowRedirect, _ := strconv.ParseBool(r.URL.Query().Get("allow_redirect"))
 
 	targetDisposition := r.URL.Query().Get("org.matrix.msc2702.asAttachment")
 	if targetDisposition == "true" {
@@ -83,7 +84,7 @@ func DownloadMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserI
 		return handleDownloadError(rctx, err)
 	}
 
-	if datastore.ShouldRedirectDownload(rctx, dbMedia.DatastoreId) {
+	if allowRedirect && datastore.ShouldRedirectDownload(rctx, dbMedia.DatastoreId) {
 		media, err := download_controller.GetMediaURL(server, mediaId, filename, downloadRemote, false, asyncWaitMs, rctx)
 		if err != nil {
 			return handleDownloadError(rctx, err)
