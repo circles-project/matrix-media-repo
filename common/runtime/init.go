@@ -74,7 +74,7 @@ func LoadDatastores() {
 
 			err = s3.EnsureBucketExists()
 			if err != nil {
-				logrus.Fatal("bucket does not exist")
+				logrus.Fatal("bucket %s does not exist", ds.Uri)
 			}
 
 			err = s3.EnsureTempPathExists()
