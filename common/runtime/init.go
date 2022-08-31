@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"fmt"
+
 	"github.com/getsentry/sentry-go"
 
 	"github.com/sirupsen/logrus"
@@ -73,12 +74,12 @@ func LoadDatastores() {
 
 			err = s3.EnsureBucketExists()
 			if err != nil {
-				logrus.Warn("\t\tBucket does not exist!")
+				logrus.Fatal("bucket does not exist")
 			}
 
 			err = s3.EnsureTempPathExists()
 			if err != nil {
-				logrus.Warn("\t\tTemporary path does not exist!")
+				logrus.Fatal("temporary path does not exist")
 			}
 		}
 	}
