@@ -19,7 +19,8 @@ type Thumbnail struct {
 	Sha256Hash  string
 }
 
-type StreamedThumbnail struct {
-	Thumbnail *Thumbnail
-	Stream    io.ReadCloser
+type StreamedOrRedirectedThumbnail struct {
+	Thumbnail   *Thumbnail
+	Stream      io.ReadCloser
+	RedirectURL string
 }

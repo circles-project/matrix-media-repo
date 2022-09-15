@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/getsentry/sentry-go"
 	"io/ioutil"
 	"time"
 
 	"github.com/disintegration/imaging"
+	"github.com/getsentry/sentry-go"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	"github.com/turt2live/matrix-media-repo/common"
@@ -26,7 +26,7 @@ import (
 
 var localCache = cache.New(30*time.Second, 60*time.Second)
 
-func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight int, animated bool, method string, downloadRemote bool, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.StreamedThumbnail, error) {
+func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight int, animated bool, method string, downloadRemote bool, asyncWaitMs *int, allowRedirect bool, ctx rcontext.RequestContext) (*types.StreamedOrRedirectedThumbnail, error) {
 	media, err := download_controller.FindMediaRecord(origin, mediaId, downloadRemote, asyncWaitMs, ctx)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight
 
 			data := &bytes.Buffer{}
 			_ = imaging.Encode(data, img, imaging.PNG)
-			return &types.StreamedThumbnail{
+			return &types.StreamedOrRedirectedThumbnail{
 				Stream: util.BufferToStream(data),
 				Thumbnail: &types.Thumbnail{
 					// We lie about the details to ensure we keep our contract
@@ -137,39 +137,48 @@ func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight
 			ctx.Log.Warn("Failed to upsert the last access time: ", err)
 		}
 
-		localCache.Set(cacheKey, thumbnail, cache.DefaultExpiration)
+		if allowRedirect && datastore.ShouldRedirectDownload(ctx, thumbnail.DatastoreId) {
+			ctx.Log.Info("getting URL to thumbnail from datastore")
+			mediaURL, err := datastore.GetDownloadURL(ctx, thumbnail.DatastoreId, thumbnail.Location, "")
+			if err != nil {
+				return nil, err
+			}
+			return &types.StreamedOrRedirectedThumbnail{Thumbnail: thumbnail, RedirectURL: mediaURL}, nil
+		} else {
+			localCache.Set(cacheKey, thumbnail, cache.DefaultExpiration)
 
-		cached, err := internal_cache.Get().GetMedia(thumbnail.Sha256Hash, internal_cache.StreamerForThumbnail(thumbnail), ctx)
-		if err != nil {
-			return nil, err
-		}
-		if cached != nil && cached.Contents != nil {
-			return &types.StreamedThumbnail{
-				Thumbnail: thumbnail,
-				Stream:    ioutil.NopCloser(cached.Contents),
-			}, nil
-		}
+			cached, err := internal_cache.Get().GetMedia(thumbnail.Sha256Hash, internal_cache.StreamerForThumbnail(thumbnail), ctx)
+			if err != nil {
+				return nil, err
+			}
+			if cached != nil && cached.Contents != nil {
+				return &types.StreamedOrRedirectedThumbnail{
+					Thumbnail: thumbnail,
+					Stream:    ioutil.NopCloser(cached.Contents),
+				}, nil
+			}
 
-		ctx.Log.Info("Reading thumbnail from datastore")
-		mediaStream, err := datastore.DownloadStream(ctx, thumbnail.DatastoreId, thumbnail.Location)
-		if err != nil {
-			return nil, err
-		}
+			ctx.Log.Info("Reading thumbnail from datastore")
+			mediaStream, err := datastore.DownloadStream(ctx, thumbnail.DatastoreId, thumbnail.Location)
+			if err != nil {
+				return nil, err
+			}
 
-		return &types.StreamedThumbnail{Thumbnail: thumbnail, Stream: mediaStream}, nil
+			return &types.StreamedOrRedirectedThumbnail{Thumbnail: thumbnail, Stream: mediaStream}, nil
+		}
 	}, func(v interface{}, count int, err error) []interface{} {
 		if err != nil {
 			sentry.CaptureException(err)
 			return nil
 		}
 
-		rv := v.(*types.StreamedThumbnail)
+		rv := v.(*types.StreamedOrRedirectedThumbnail)
 		vals := make([]interface{}, 0)
 		streams := util.CloneReader(rv.Stream, count)
 
 		for i := 0; i < count; i++ {
 			internal_cache.Get().MarkDownload(rv.Thumbnail.Sha256Hash)
-			vals = append(vals, &types.StreamedThumbnail{
+			vals = append(vals, &types.StreamedOrRedirectedThumbnail{
 				Thumbnail: rv.Thumbnail,
 				Stream:    streams[i],
 			})
@@ -178,9 +187,9 @@ func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight
 		return vals
 	})
 
-	var value *types.StreamedThumbnail
+	var value *types.StreamedOrRedirectedThumbnail
 	if v != nil {
-		value = v.(*types.StreamedThumbnail)
+		value = v.(*types.StreamedOrRedirectedThumbnail)
 	}
 
 	return value, err

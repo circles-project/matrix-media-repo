@@ -1,10 +1,10 @@
 package r0
 
 import (
-	"github.com/getsentry/sentry-go"
 	"net/http"
 	"strconv"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/api"
@@ -19,6 +19,7 @@ func ThumbnailMedia(r *http.Request, rctx rcontext.RequestContext, user api.User
 	server := params["server"]
 	mediaId := params["mediaId"]
 	allowRemote := r.URL.Query().Get("allow_remote")
+	allowRedirect, _ := strconv.ParseBool(r.URL.Query().Get("allow_redirect"))
 
 	downloadRemote := true
 	if allowRemote != "" {
@@ -102,7 +103,7 @@ func ThumbnailMedia(r *http.Request, rctx rcontext.RequestContext, user api.User
 		return api.BadRequest("Width and height must be greater than zero")
 	}
 
-	streamedThumbnail, err := thumbnail_controller.GetThumbnail(server, mediaId, width, height, animated, method, downloadRemote, asyncWaitMs, rctx)
+	streamedThumbnail, err := thumbnail_controller.GetThumbnail(server, mediaId, width, height, animated, method, downloadRemote, asyncWaitMs, allowRedirect, rctx)
 	if err != nil {
 		if err == common.ErrMediaNotFound {
 			return api.NotFoundError()
@@ -116,10 +117,17 @@ func ThumbnailMedia(r *http.Request, rctx rcontext.RequestContext, user api.User
 		return api.InternalServerError("Unexpected Error")
 	}
 
-	return &DownloadMediaResponse{
-		ContentType: streamedThumbnail.Thumbnail.ContentType,
-		SizeBytes:   streamedThumbnail.Thumbnail.SizeBytes,
-		Data:        streamedThumbnail.Stream,
-		Filename:    "thumbnail.png",
+	if streamedThumbnail.RedirectURL != "" {
+		return &Redirect{
+			Status: http.StatusTemporaryRedirect,
+			URL:    streamedThumbnail.RedirectURL,
+		}
+	} else {
+		return &DownloadMediaResponse{
+			ContentType: streamedThumbnail.Thumbnail.ContentType,
+			SizeBytes:   streamedThumbnail.Thumbnail.SizeBytes,
+			Data:        streamedThumbnail.Stream,
+			Filename:    "thumbnail.png",
+		}
 	}
 }
