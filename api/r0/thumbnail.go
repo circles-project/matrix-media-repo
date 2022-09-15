@@ -117,17 +117,17 @@ func ThumbnailMedia(r *http.Request, rctx rcontext.RequestContext, user api.User
 		return api.InternalServerError("Unexpected Error")
 	}
 
-	if streamedThumbnail.RedirectURL != "" {
-		return &Redirect{
-			Status: http.StatusTemporaryRedirect,
-			URL:    streamedThumbnail.RedirectURL,
-		}
-	} else {
+	if streamedThumbnail.Stream != nil {
 		return &DownloadMediaResponse{
 			ContentType: streamedThumbnail.Thumbnail.ContentType,
 			SizeBytes:   streamedThumbnail.Thumbnail.SizeBytes,
 			Data:        streamedThumbnail.Stream,
 			Filename:    "thumbnail.png",
+		}
+	} else {
+		return &Redirect{
+			Status: http.StatusTemporaryRedirect,
+			URL:    streamedThumbnail.RedirectURL,
 		}
 	}
 }
