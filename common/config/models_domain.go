@@ -68,6 +68,7 @@ type UrlPreviewsConfig struct {
 	UserAgent          string   `yaml:"userAgent"`
 	OEmbed             bool     `yaml:"oEmbed"`
 	Proxy              string   `yaml:"proxy"`
+	MetricsDomains     []string `yaml:"metricsDomains"`
 }
 
 type IdenticonsConfig struct {

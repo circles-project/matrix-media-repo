@@ -43,6 +43,11 @@ var MediaDownloaded = prometheus.NewCounterVec(prometheus.CounterOpts{
 var UrlPreviewsGenerated = prometheus.NewCounterVec(prometheus.CounterOpts{
 	Name: "media_url_previews_generated_total",
 }, []string{"type"})
+var URLPreviewHTTPClientRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Name:    "url_preview_client_request_duration_seconds",
+	Help:    "how long the URL preview took for each URL. Only recorded for domains of interest.",
+	Buckets: prometheus.ExponentialBucketsRange(0.1, 10, 10),
+}, []string{"domain"})
 
 func init() {
 	prometheus.MustRegister(HttpRequests)
@@ -58,4 +63,5 @@ func init() {
 	prometheus.MustRegister(ThumbnailsGenerated)
 	prometheus.MustRegister(MediaDownloaded)
 	prometheus.MustRegister(UrlPreviewsGenerated)
+	prometheus.MustRegister(URLPreviewHTTPClientRequestDuration)
 }

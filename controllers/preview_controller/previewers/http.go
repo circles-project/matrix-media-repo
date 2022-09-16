@@ -13,11 +13,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/ryanuber/go-glob"
 	"github.com/turt2live/matrix-media-repo/common"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
 	"github.com/turt2live/matrix-media-repo/controllers/preview_controller/acl"
 	"github.com/turt2live/matrix-media-repo/controllers/preview_controller/preview_types"
+	"github.com/turt2live/matrix-media-repo/metrics"
 	"github.com/turt2live/matrix-media-repo/util"
 	"github.com/turt2live/matrix-media-repo/util/cleanup"
 )
@@ -25,18 +27,18 @@ import (
 func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx rcontext.RequestContext) (*http.Response, error) {
 	var client *http.Client
 
-	proxy := http.ProxyFromEnvironment;
+	proxy := http.ProxyFromEnvironment
 
 	var proxyUrl *url.URL
 	if len(ctx.Config.UrlPreviews.Proxy) > 0 {
 		var err error
-		proxyUrl, err = url.Parse(ctx.Config.UrlPreviews.Proxy);
+		proxyUrl, err = url.Parse(ctx.Config.UrlPreviews.Proxy)
 
 		if err != nil {
 			return nil, err
 		}
 
-		proxy = http.ProxyURL(proxyUrl);
+		proxy = http.ProxyURL(proxyUrl)
 	}
 
 	dialer := &net.Dialer{
@@ -90,6 +92,18 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 			Timeout:   time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
 		}
 	} else {
+		for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
+			if urlPayload.ParsedUrl.Host != domain {
+				continue
+			}
+
+			observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
+			timer := prometheus.NewTimer(observer)
+			defer func() {
+				timer.ObserveDuration()
+			}()
+			break
+		}
 		client = &http.Client{
 			Timeout: time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
 			Transport: &http.Transport{
