@@ -63,17 +63,13 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 		return dialer.DialContext(ctx, network, addr)
 	}
 
-	for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
-		if urlPayload.ParsedUrl.Host != domain {
-			continue
-		}
-
+	if urlPayload.ParsedUrl != nil {
 		observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
 		timer := prometheus.NewTimer(observer)
 		defer func() {
-			timer.ObserveDuration()
+			t := timer.ObserveDuration()
+			ctx.Log.Infof("request to %s took %s", urlPayload.ParsedUrl.Host, t.Round(time.Millisecond))
 		}()
-		break
 	}
 
 	if ctx.Config.UrlPreviews.UnsafeCertificates {
