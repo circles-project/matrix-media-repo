@@ -174,6 +174,11 @@ func GetThumbnail(origin string, mediaId string, desiredWidth int, desiredHeight
 
 		rv := v.(*types.StreamedOrRedirectedThumbnail)
 		vals := make([]interface{}, 0)
+
+		if rv.Stream == nil {
+			return vals
+		}
+
 		streams := util.CloneReader(rv.Stream, count)
 
 		for i := 0; i < count; i++ {
