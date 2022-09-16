@@ -63,6 +63,19 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 		return dialer.DialContext(ctx, network, addr)
 	}
 
+	for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
+		if urlPayload.ParsedUrl.Host != domain {
+			continue
+		}
+
+		observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
+		timer := prometheus.NewTimer(observer)
+		defer func() {
+			timer.ObserveDuration()
+		}()
+		break
+	}
+
 	if ctx.Config.UrlPreviews.UnsafeCertificates {
 		ctx.Log.Warn("Ignoring any certificate errors while making request")
 		tr := &http.Transport{
@@ -92,18 +105,6 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 			Timeout:   time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
 		}
 	} else {
-		for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
-			if urlPayload.ParsedUrl.Host != domain {
-				continue
-			}
-
-			observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
-			timer := prometheus.NewTimer(observer)
-			defer func() {
-				timer.ObserveDuration()
-			}()
-			break
-		}
 		client = &http.Client{
 			Timeout: time.Duration(ctx.Config.TimeoutSeconds.UrlPreviews) * time.Second,
 			Transport: &http.Transport{
