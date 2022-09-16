@@ -64,12 +64,19 @@ func doHttpGet(urlPayload *preview_types.UrlPayload, languageHeader string, ctx 
 	}
 
 	if urlPayload.ParsedUrl != nil {
-		observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
-		timer := prometheus.NewTimer(observer)
-		defer func() {
-			t := timer.ObserveDuration()
-			ctx.Log.Infof("request to %s took %s", urlPayload.ParsedUrl.Host, t.Round(time.Millisecond))
-		}()
+		for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
+			if urlPayload.ParsedUrl.Host != domain {
+				continue
+			}
+
+			observer := metrics.URLPreviewHTTPClientRequestDuration.WithLabelValues(urlPayload.ParsedUrl.Host)
+			timer := prometheus.NewTimer(observer)
+			defer func() {
+				t := timer.ObserveDuration()
+				ctx.Log.Infof("request to %s took %s", urlPayload.ParsedUrl.Host, t.Round(time.Millisecond))
+			}()
+			break
+		}
 	}
 
 	if ctx.Config.UrlPreviews.UnsafeCertificates {

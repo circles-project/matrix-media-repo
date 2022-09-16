@@ -13,9 +13,11 @@ import (
 
 	"github.com/minio/minio-go/v6"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/common/config"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
+	"github.com/turt2live/matrix-media-repo/metrics"
 	"github.com/turt2live/matrix-media-repo/types"
 	"github.com/turt2live/matrix-media-repo/util"
 	"github.com/turt2live/matrix-media-repo/util/cleanup"
@@ -165,6 +167,12 @@ func (s *s3Datastore) GetUploadURL(ctx rcontext.RequestContext) (string, string,
 
 func (s *s3Datastore) UploadFile(file io.ReadCloser, expectedLength int64, ctx rcontext.RequestContext) (*types.ObjectInfo, error) {
 	defer cleanup.DumpAndCloseStream(file)
+
+	timer := prometheus.NewTimer(metrics.MediaUploadDuration)
+	defer func() {
+		timer.ObserveDuration()
+		metrics.MediaUploadBytes.Add(float64(expectedLength))
+	}()
 
 	objectName, err := s.generateObjectKey()
 	if err != nil {
