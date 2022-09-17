@@ -168,12 +168,6 @@ func (s *s3Datastore) GetUploadURL(ctx rcontext.RequestContext) (string, string,
 func (s *s3Datastore) UploadFile(file io.ReadCloser, expectedLength int64, ctx rcontext.RequestContext) (*types.ObjectInfo, error) {
 	defer cleanup.DumpAndCloseStream(file)
 
-	timer := prometheus.NewTimer(metrics.MediaUploadDuration)
-	defer func() {
-		timer.ObserveDuration()
-		metrics.MediaUploadBytes.Add(float64(expectedLength))
-	}()
-
 	objectName, err := s.generateObjectKey()
 	if err != nil {
 		return nil, err
@@ -226,9 +220,17 @@ func (s *s3Datastore) UploadFile(file io.ReadCloser, expectedLength int64, ctx r
 				expectedLength = -1
 			}
 		}
+
+		timer := prometheus.NewTimer(metrics.MediaUploadDuration)
+		defer func() {
+			t := timer.ObserveDuration()
+			ctx.Log.WithFields(logrus.Fields{"duration": t.Round(time.Millisecond), "upload_size": expectedLength}).Info("s3 upload complete")
+		}()
+
 		ctx.Log.Info("Uploading file...")
 		sizeBytes, uploadErr = s.client.PutObjectWithContext(ctx, s.bucket, objectName, rs3, expectedLength, minio.PutObjectOptions{StorageClass: s.storageClass})
 		ctx.Log.Info("Uploaded ", sizeBytes, " bytes to s3")
+		metrics.MediaUploadBytes.Add(float64(sizeBytes))
 		done <- true
 	}()
 
