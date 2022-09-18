@@ -46,12 +46,12 @@ var UrlPreviewsGenerated = prometheus.NewCounterVec(prometheus.CounterOpts{
 var URLPreviewHTTPClientRequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Name:    "url_preview_client_request_duration_seconds",
 	Help:    "how long the URL preview took for each URL. Only recorded for domains of interest.",
-	Buckets: prometheus.ExponentialBucketsRange(0.1, 10, 10),
+	Buckets: prometheus.ExponentialBucketsRange(0.1, 10, 20),
 }, []string{"domain"})
 var MediaUploadDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 	Name:    "media_upload_duration_seconds",
 	Help:    "how long it takes to upload media to the media store",
-	Buckets: prometheus.ExponentialBucketsRange(0.1, 5, 10),
+	Buckets: prometheus.ExponentialBucketsRange(0.1, 10, 20),
 })
 var MediaUploadBytes = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "media_upload_bytes_total",
