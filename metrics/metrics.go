@@ -51,7 +51,7 @@ var URLPreviewHTTPClientRequestDuration = prometheus.NewHistogramVec(prometheus.
 var MediaUploadDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 	Name:    "media_upload_duration_seconds",
 	Help:    "how long it takes to upload media to the media store",
-	Buckets: prometheus.ExponentialBucketsRange(0.1, 10, 20),
+	Buckets: prometheus.ExponentialBucketsRange(1, 30, 20),
 })
 var MediaUploadBytes = prometheus.NewCounter(prometheus.CounterOpts{
 	Name: "media_upload_bytes_total",
