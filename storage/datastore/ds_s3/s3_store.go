@@ -221,7 +221,11 @@ func (s *s3Datastore) UploadFile(file io.ReadCloser, expectedLength int64, ctx r
 			}
 		}
 
-		timer := prometheus.NewTimer(metrics.MediaUploadDuration.WithLabelValues(ctx.Log.Data["worker_previewer"].(string)))
+		label := ""
+		if worker, ok := ctx.Log.Data["worker_previewer"]; ok {
+			label = worker.(string)
+		}
+		timer := prometheus.NewTimer(metrics.MediaUploadDuration.WithLabelValues(label))
 		defer func() {
 			t := timer.ObserveDuration()
 			ctx.Log.WithFields(logrus.Fields{"duration": t.Round(time.Millisecond), "upload_size": expectedLength}).Info("s3 upload complete")
