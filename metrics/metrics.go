@@ -77,6 +77,7 @@ func init() {
 	prometheus.MustRegister(ThumbnailsGenerated)
 	prometheus.MustRegister(MediaDownloaded)
 	prometheus.MustRegister(UrlPreviewsGenerated)
+	prometheus.MustRegister(URLPreviewDuration)
 	prometheus.MustRegister(URLPreviewHTTPClientRequestDuration)
 	prometheus.MustRegister(MediaUploadDuration)
 	prometheus.MustRegister(MediaUploadBytes)
