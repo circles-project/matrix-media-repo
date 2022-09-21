@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/common"
 	"github.com/turt2live/matrix-media-repo/common/globals"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
 	"github.com/turt2live/matrix-media-repo/controllers/preview_controller/preview_types"
+	"github.com/turt2live/matrix-media-repo/metrics"
 	"github.com/turt2live/matrix-media-repo/storage"
 	"github.com/turt2live/matrix-media-repo/storage/stores"
 	"github.com/turt2live/matrix-media-repo/types"
@@ -61,6 +64,20 @@ func GetPreview(urlStr string, onHost string, forUserId string, atTs int64, lang
 		}
 
 		ctx.Log.Info("Preview not cached - fetching resource")
+
+		for _, domain := range ctx.Config.UrlPreviews.MetricsDomains {
+			if urlToPreview.ParsedUrl.Host != domain {
+				continue
+			}
+
+			observer := metrics.URLPreviewDuration.WithLabelValues(urlToPreview.ParsedUrl.Host)
+			timer := prometheus.NewTimer(observer)
+			defer func() {
+				t := timer.ObserveDuration()
+				ctx.Log.Infof("URL generation for %s took %s", urlToPreview.ParsedUrl.Host, t.Round(time.Millisecond))
+			}()
+			break
+		}
 
 		previewChan := getResourceHandler().GeneratePreview(urlToPreview, forUserId, onHost, languageHeader, ctx.Config.UrlPreviews.OEmbed)
 		defer close(previewChan)
