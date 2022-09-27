@@ -3,6 +3,7 @@ package datastore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -122,7 +123,13 @@ func (d *DatastoreRef) GetDownloadURL(ctx rcontext.RequestContext, location stri
 	if err != nil {
 		return "", err
 	}
-	return s3.GetDownloadURL(ctx, location, filename)
+
+	publicPrefix, ok := d.config.Options["publicPrefix"]
+	if ok {
+		return fmt.Sprintf("%s/%s", publicPrefix, filename), nil
+	} else {
+		return s3.GetDownloadURL(ctx, location, filename)
+	}
 }
 
 func (d *DatastoreRef) ObjectExists(location string) bool {
