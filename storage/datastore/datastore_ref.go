@@ -126,7 +126,7 @@ func (d *DatastoreRef) GetDownloadURL(ctx rcontext.RequestContext, location stri
 
 	publicPrefix, ok := d.config.Options["publicPrefix"]
 	if ok {
-		return fmt.Sprintf("%s/%s", publicPrefix, filename), nil
+		return fmt.Sprintf("%s/%s", publicPrefix, location), nil
 	} else {
 		return s3.GetDownloadURL(ctx, location, filename)
 	}
