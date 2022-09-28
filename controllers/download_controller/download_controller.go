@@ -27,20 +27,7 @@ import (
 var localCache = cache.New(30*time.Second, 60*time.Second)
 
 // GetMediaURL is like GetMedia but it returns a pre-signed S3 download URL
-func GetMediaURL(origin string, mediaId string, filename string, downloadRemote bool, blockForMedia bool, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.MinimalMedia, error) {
-	db := storage.GetDatabase().GetMediaStore(ctx)
-
-	ctx.Log.Info("Getting media record from database")
-	dbMedia, err := db.Get(origin, mediaId)
-	if err != nil {
-		return nil, err
-	}
-
-	media, err := waitForUpload(dbMedia, asyncWaitMs, ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func GetMediaURL(media *types.Media, filename string, downloadRemote bool, blockForMedia bool, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.MinimalMedia, error) {
 	if filename == "" {
 		filename = media.UploadName
 	}

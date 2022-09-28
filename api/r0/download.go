@@ -84,7 +84,7 @@ func DownloadMedia(r *http.Request, rctx rcontext.RequestContext, user api.UserI
 	}
 
 	if allowRedirect && datastore.ShouldRedirectDownload(rctx, media.DatastoreId) {
-		media, err := download_controller.GetMediaURL(server, mediaId, filename, downloadRemote, false, asyncWaitMs, rctx)
+		media, err := download_controller.GetMediaURL(media, filename, downloadRemote, false, asyncWaitMs, rctx)
 		if err != nil {
 			logrus.Debug("error generating pre-signed download URL for media")
 			return handleDownloadError(rctx, err)
