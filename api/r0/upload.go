@@ -129,6 +129,11 @@ func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.User
 	media.ContentType = info.ContentType
 	media.SizeBytes = info.Size
 
+	if err := db.Update(media); err != nil {
+		rctx.Log.Error("error updating media in db: ", err)
+		return api.InternalServerError("unexpected error processing upload")
+	}
+
 	go func() {
 		// Download the file to get the hash
 		f, err := ds.DownloadFile(media.Location)
