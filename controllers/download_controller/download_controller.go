@@ -181,63 +181,73 @@ func GetMedia(origin string, mediaId string, downloadRemote bool, blockForMedia 
 	return value, err
 }
 
-func waitForUpload(media *types.Media, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
+// func waitForUpload(media *types.Media, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
+func getMediaWaitForUpload(origin string, mediaID string, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
+	ch := util.StartWaitForUpload(origin, mediaID)
+
+	ctx.Log.Info("Getting media record from database")
+	db := storage.GetDatabase().GetMediaStore(ctx)
+	media, err := db.Get(origin, mediaID)
+	if err != nil {
+		return nil, err
+	}
+
 	if media == nil {
 		return nil, errors.New("waited for nil media")
 	}
 
-	if util.IsServerOurs(media.Origin) && media.SizeBytes == 0 {
-		// we're not allowed to wait by requester
-		if asyncWaitMs == nil {
-			return nil, common.ErrMediaNotFound
-		}
-
-		waitMs := *asyncWaitMs
-
-		// max wait one minute
-		if waitMs > 60_000 {
-			waitMs = 60_000
-		}
-
-		// use default wait if negative
-		if waitMs < 0 {
-			waitMs = ctx.Config.Features.MSC2246Async.AsyncDownloadDefaultWaitSecs * 1000
-
-			// if the default is zero and client didn't request any then waiting is disabled
-			if waitMs == 0 {
-				return nil, common.ErrMediaNotFound
-			}
-		}
-
-		// if the upload did not complete in 6 hours, consider it never will
-		if util.NowMillis()-media.CreationTs > 3600*6*1000 {
-			ctx.Log.Info("Tried to download expired asynchronous upload")
-			return nil, common.ErrMediaNotFound
-		}
-
-		ctx.Log.Infof("Asynchronous upload not complete, waiting for %s/%s", media.Origin, media.MediaId)
-		if ok := util.WaitForUpload(media.Origin, media.MediaId, time.Millisecond*time.Duration(waitMs)); !ok {
-			return nil, common.ErrNotYetUploaded
-		}
-
-		// fetch the entry from database again after we're notified it should be complete
-		db := storage.GetDatabase().GetMediaStore(ctx)
-		return db.Get(media.Origin, media.MediaId)
+	if !util.IsServerOurs(origin) {
+		return media, nil
 	}
 
-	return media, nil
+	if media.SizeBytes != 0 {
+		return media, nil
+	}
+	// we're not allowed to wait by requester
+	if asyncWaitMs == nil {
+		return nil, common.ErrMediaNotFound
+	}
+
+	waitMs := *asyncWaitMs
+
+	// max wait one minute
+	if waitMs > 60_000 {
+		waitMs = 60_000
+	}
+
+	// use default wait if negative
+	if waitMs < 0 {
+		waitMs = ctx.Config.Features.MSC2246Async.AsyncDownloadDefaultWaitSecs * 1000
+
+		// if the default is zero and client didn't request any then waiting is disabled
+		if waitMs == 0 {
+			return nil, common.ErrMediaNotFound
+		}
+	}
+
+	// if the upload did not complete in 6 hours, consider it never will
+	if util.NowMillis()-media.CreationTs > 3600*6*1000 {
+		ctx.Log.Info("Tried to download expired asynchronous upload")
+		return nil, common.ErrMediaNotFound
+	}
+
+	ctx.Log.Infof("Asynchronous upload not complete, waiting for %s/%s", origin, mediaID)
+	if ok := util.WaitForUpload(ch, origin, mediaID, time.Millisecond*time.Duration(waitMs)); !ok {
+		return nil, common.ErrNotYetUploaded
+	}
+
+	// fetch the entry from database again after we're notified it should be complete
+	return storage.GetDatabase().GetMediaStore(ctx).Get(origin, mediaID)
 }
 
 func FindMinimalMediaRecord(origin string, mediaId string, downloadRemote bool, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.MinimalMedia, error) {
-	db := storage.GetDatabase().GetMediaStore(ctx)
-
 	var media *types.Media
 	item, found := localCache.Get(origin + "/" + mediaId)
 	if found {
 		media = item.(*types.Media)
 	} else {
-		ctx.Log.Info("Getting media record from database")
-		dbMedia, err := db.Get(origin, mediaId)
+		var err error
+		media, err = getMediaWaitForUpload(origin, mediaId, asyncWaitMs, ctx)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				if util.IsServerOurs(origin) {
@@ -285,11 +295,6 @@ func FindMinimalMediaRecord(origin string, mediaId string, downloadRemote bool, 
 				Stream:      result.stream,
 				KnownMedia:  nil, // unknown
 			}, nil
-		} else {
-			media, err = waitForUpload(dbMedia, asyncWaitMs, ctx)
-			if err != nil {
-				return nil, err
-			}
 		}
 	}
 
@@ -327,15 +332,13 @@ func FindMinimalMediaRecord(origin string, mediaId string, downloadRemote bool, 
 func FindMediaRecord(origin string, mediaId string, downloadRemote bool, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
 	cacheKey := origin + "/" + mediaId
 	v, _, err := globals.DefaultRequestGroup.DoWithoutPost(cacheKey, func() (interface{}, error) {
-		db := storage.GetDatabase().GetMediaStore(ctx)
-
 		var media *types.Media
 		item, found := localCache.Get(cacheKey)
 		if found {
 			media = item.(*types.Media)
 		} else {
-			ctx.Log.Info("Getting media record from database")
-			dbMedia, err := db.Get(origin, mediaId)
+			var err error
+			media, err = getMediaWaitForUpload(origin, mediaId, asyncWaitMs, ctx)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					if util.IsServerOurs(origin) {
@@ -344,7 +347,7 @@ func FindMediaRecord(origin string, mediaId string, downloadRemote bool, asyncWa
 					}
 				} else {
 					// We don't even want to attempt a download - something very wrong happened
-					ctx.Log.Error("Database error trying to get media:", err.Error())
+					ctx.Log.Error("error trying to get media:", err.Error())
 					return nil, err
 				}
 
@@ -353,18 +356,14 @@ func FindMediaRecord(origin string, mediaId string, downloadRemote bool, asyncWa
 					return nil, common.ErrMediaNotFound
 				}
 
+				ctx.Log.Info("queuing download of remote media")
+
 				mediaChan := getResourceHandler().DownloadRemoteMedia(origin, mediaId, true)
 				defer close(mediaChan)
 
 				result := <-mediaChan
 				if result.err != nil {
 					return nil, result.err
-				}
-				media = result.media
-			} else {
-				media, err = waitForUpload(dbMedia, asyncWaitMs, ctx)
-				if err != nil {
-					return nil, err
 				}
 			}
 		}

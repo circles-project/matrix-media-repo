@@ -10,9 +10,9 @@ type mediaSet map[chan struct{}]struct{}
 var waiterLock = &sync.Mutex{}
 var waiters = map[string]mediaSet{}
 
-func WaitForUpload(origin string, mediaId string, timeout time.Duration) bool {
-	key := origin + mediaId
-	ch := make(chan struct{}, 1)
+func StartWaitForUpload(origin string, mediaID string) chan struct{} {
+	key := origin + mediaID
+	ch := make(chan struct{})
 
 	waiterLock.Lock()
 	var set mediaSet
@@ -22,6 +22,21 @@ func WaitForUpload(origin string, mediaId string, timeout time.Duration) bool {
 		waiters[key] = set
 	}
 	set[ch] = struct{}{}
+	waiterLock.Unlock()
+
+	return ch
+}
+
+func WaitForUpload(ch chan struct{}, origin string, mediaId string, timeout time.Duration) bool {
+	key := origin + mediaId
+	waiterLock.Lock()
+
+	var set mediaSet
+	var ok bool
+	if set, ok = waiters[key]; !ok {
+		set = make(mediaSet)
+		waiters[key] = set
+	}
 	waiterLock.Unlock()
 
 	defer func() {
