@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/disintegration/imaging"
+	"github.com/getsentry/sentry-go"
+	"github.com/patrickmn/go-cache"
 	"github.com/turt2live/matrix-media-repo/common"
 	"github.com/turt2live/matrix-media-repo/common/globals"
 	"github.com/turt2live/matrix-media-repo/common/rcontext"
@@ -226,7 +228,7 @@ func waitForUpload(media *types.Media, asyncWaitMs *int, ctx rcontext.RequestCon
 			return nil, common.ErrMediaNotFound
 		}
 
-		ctx.Log.Info("Asynchronous upload not complete, waiting for %s/%s", media.Origin, media.MediaId)
+		ctx.Log.Infof("Asynchronous upload not complete, waiting for %s/%s", media.Origin, media.MediaId)
 		if ok := util.WaitForUpload(media.Origin, media.MediaId, time.Millisecond*time.Duration(waitMs)); !ok {
 			return nil, common.ErrNotYetUploaded
 		}
