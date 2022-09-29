@@ -1,0 +1,18 @@
+# ---- Stage 0 ----
+# Builds media repo binaries
+FROM golang:1.16-alpine AS development
+
+# Install build dependencies
+RUN apk add --no-cache git musl-dev dos2unix build-base
+
+WORKDIR /opt
+COPY . /opt
+RUN dos2unix ./build.sh ./docker/run.sh
+RUN ./build.sh
+
+# Setup development stack using gow
+RUN go install github.com/mitranim/gow@ffddac7d057414cb00ed06f6b1fd856828de551e
+RUN echo "gow run /opt/cmd/media_repo" > /usr/local/bin/media_repo \
+    && chmod +x /usr/local/bin/media_repo
+VOLUME /data
+RUN rm -f /opt/media-repo.yaml && ln -s /data/media-repo.yaml /opt
