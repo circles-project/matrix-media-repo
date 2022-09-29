@@ -184,8 +184,8 @@ func GetMedia(origin string, mediaId string, downloadRemote bool, blockForMedia 
 // func waitForUpload(media *types.Media, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
 func getMediaWaitForUpload(origin string, mediaID string, asyncWaitMs *int, ctx rcontext.RequestContext) (*types.Media, error) {
 	ctx.Log.Info("starting listener for async upload notifications")
-	ch := util.StartWaitForUpload(origin, mediaID)
-	defer util.CancelWaitForUpload(ch, origin, mediaID)
+	ch := util.StartWaitForUpload(ctx, origin, mediaID)
+	defer util.CancelWaitForUpload(ctx, ch, origin, mediaID)
 
 	ctx.Log.Info("Getting media record from database")
 	db := storage.GetDatabase().GetMediaStore(ctx)
@@ -235,7 +235,7 @@ func getMediaWaitForUpload(origin string, mediaID string, asyncWaitMs *int, ctx 
 	}
 
 	ctx.Log.Infof("Asynchronous upload not complete, waiting for %s/%s", origin, mediaID)
-	if ok := util.WaitForUpload(ch, origin, mediaID, time.Millisecond*time.Duration(waitMs)); !ok {
+	if ok := util.WaitForUpload(ctx, ch, origin, mediaID, time.Millisecond*time.Duration(waitMs)); !ok {
 		return nil, common.ErrNotYetUploaded
 	}
 
