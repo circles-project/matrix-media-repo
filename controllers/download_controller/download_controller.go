@@ -365,6 +365,7 @@ func FindMediaRecord(origin string, mediaId string, downloadRemote bool, asyncWa
 				if result.err != nil {
 					return nil, result.err
 				}
+				media = result.media
 			}
 		}
 
