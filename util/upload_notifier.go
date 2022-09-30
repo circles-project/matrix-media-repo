@@ -129,6 +129,6 @@ func NotifyUpload(ctx rcontext.RequestContext, origin string, mediaId string) {
 	for channel := range set {
 		start := time.Now()
 		channel <- struct{}{}
-		ctx.Log.Infof("upload listener notified in ", time.Since(start))
+		ctx.Log.Info("upload listener notified in ", time.Since(start))
 	}
 }
