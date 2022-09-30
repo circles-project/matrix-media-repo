@@ -118,6 +118,12 @@ func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.User
 		return api.InternalServerError("unexpected error processing upload")
 	}
 
+	if info.Size == 0 {
+		rctx.Log.Warn("rejecting upload complete for empty file")
+		// TODO: delete file from provider and db in this case
+		return api.RequestTooSmall()
+	}
+
 	media.ContentType = info.ContentType
 	media.SizeBytes = info.Size
 
