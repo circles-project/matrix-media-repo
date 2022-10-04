@@ -60,6 +60,25 @@ func WaitForUpload(ch chan struct{}, origin string, mediaId string, timeout time
 	}
 }
 
+func CancelWaitForUpload(ch chan struct{}, origin string, mediaId string) {
+	key := origin + mediaId
+	waiterLock.Lock()
+	defer waiterLock.Unlock()
+
+	var set mediaSet
+	var ok bool
+	if set, ok = waiters[key]; !ok {
+		return
+	}
+
+	delete(set, ch)
+	close(ch)
+
+	if len(set) == 0 {
+		delete(waiters, key)
+	}
+}
+
 func NotifyUpload(origin string, mediaId string) {
 	waiterLock.Lock()
 	defer waiterLock.Unlock()
