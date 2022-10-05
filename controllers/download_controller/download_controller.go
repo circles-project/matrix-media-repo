@@ -201,9 +201,11 @@ func getMediaWaitForUpload(origin string, mediaID string, asyncWaitMs *int, ctx 
 		return media, nil
 	}
 
+	// if the size is zero it means the async upload isn't complete
 	if media.SizeBytes != 0 {
 		return media, nil
 	}
+
 	// we're not allowed to wait by requester
 	if asyncWaitMs == nil {
 		return nil, common.ErrMediaNotFound
