@@ -104,14 +104,6 @@ func OpenDatabase(connectionString string, maxConns int, maxIdleConns int) error
 		return err
 	}
 
-	// Run some tasks that should always be done on startup
-	if err = populateDatastores(d); err != nil {
-		return err
-	}
-	if err = populateThumbnailHashes(d); err != nil {
-		return err
-	}
-
 	dbInstance = d
 	return nil
 }
