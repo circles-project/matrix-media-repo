@@ -121,8 +121,13 @@ func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.User
 	media.ContentType = info.ContentType
 	media.SizeBytes = info.Size
 
+	if err := db.Update(media); err != nil {
+		rctx.Log.Error("error updating media in db: ", err)
+		return api.InternalServerError("unexpected error processing upload")
+	}
+
+	// Kick off a background goroutine to download the file, hash contents and update the DB
 	go func() {
-		// Download the file to get the hash
 		f, err := ds.DownloadFile(media.Location)
 		if err != nil {
 			rctx.Log.Error("error getting uploaded file for upload_complete: ", err)
@@ -138,7 +143,6 @@ func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.User
 
 		media.Sha256Hash = hash
 
-		// db variable used in parent function will have a cancelled context by the time we get here
 		outOfContextDB := storage.GetDatabase().GetMediaStore(rcontext.Initial())
 		if err := outOfContextDB.Update(media); err != nil {
 			rctx.Log.Error("error updating media entry in db: ", err)
