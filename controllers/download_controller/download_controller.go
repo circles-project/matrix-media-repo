@@ -228,7 +228,7 @@ func waitForUpload(media *types.Media, asyncWaitMs *int, ctx rcontext.RequestCon
 			return nil, common.ErrMediaNotFound
 		}
 
-		ctx.Log.Info("Asynchronous upload not complete, waiting")
+		ctx.Log.Infof("Asynchronous upload not complete, waiting for %s/%s", media.Origin, media.MediaId)
 		if ok := util.WaitForUpload(media.Origin, media.MediaId, time.Millisecond*time.Duration(waitMs)); !ok {
 			return nil, common.ErrNotYetUploaded
 		}
