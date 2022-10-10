@@ -18,7 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/turt2live/matrix-media-repo/api"
 	"github.com/turt2live/matrix-media-repo/api/custom"
-	"github.com/turt2live/matrix-media-repo/api/features"
 	"github.com/turt2live/matrix-media-repo/api/r0"
 	"github.com/turt2live/matrix-media-repo/api/unstable"
 	"github.com/turt2live/matrix-media-repo/api/webserver/debug"
@@ -86,7 +85,6 @@ func Init() *sync.WaitGroup {
 	appendToImportHandler := handler{api.RepoAdminRoute(custom.AppendToImport), "append_to_import", counter, false}
 	stopImportHandler := handler{api.RepoAdminRoute(custom.StopImport), "stop_import", counter, false}
 	versionHandler := handler{api.AccessTokenOptionalRoute(custom.GetVersion), "get_version", counter, false}
-	ipfsDownloadHandler := handler{api.AccessTokenOptionalRoute(unstable.IPFSDownload), "ipfs_download", counter, false}
 	logoutHandler := handler{api.AccessTokenRequiredRoute(r0.Logout), "logout", counter, false}
 	logoutAllHandler := handler{api.AccessTokenRequiredRoute(r0.LogoutAll), "logout_all", counter, false}
 	getMediaAttrsHandler := handler{api.AccessTokenRequiredRoute(custom.GetAttributes), "get_media_attributes", counter, false}
@@ -165,13 +163,6 @@ func Init() *sync.WaitGroup {
 		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/create", route{"POST", createHandler}})
 		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/upload/{server:[a-zA-Z0-9.:\\-_]+}/{mediaId:[^/]+}/complete", route{"POST", uploadCompleteHandler}})
 		routes = append(routes, definedRoute{"/_matrix/media/unstable/fi.mau.msc2246/upload/{server:[a-zA-Z0-9.:\\-_]+}/{mediaId:[^/]+}", route{"PUT", uploadHandler}})
-	}
-
-	if config.Get().Features.IPFS.Enabled {
-		routes = append(routes, definedRoute{features.IPFSDownloadRoute, route{"GET", ipfsDownloadHandler}})
-		routes = append(routes, definedRoute{features.IPFSLiveDownloadRouteR0, route{"GET", ipfsDownloadHandler}})
-		routes = append(routes, definedRoute{features.IPFSLiveDownloadRouteV1, route{"GET", ipfsDownloadHandler}})
-		routes = append(routes, definedRoute{features.IPFSLiveDownloadRouteUnstable, route{"GET", ipfsDownloadHandler}})
 	}
 
 	for _, def := range routes {

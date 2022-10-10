@@ -33,22 +33,17 @@ require (
 	github.com/go-redis/redis/v8 v8.7.1
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
-	github.com/golang/snappy v0.0.1 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20190812055157-5d271430af9f // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/hashicorp/go-plugin v1.4.0
 	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce // indirect
-	github.com/ipfs/go-cid v0.0.7
-	github.com/ipfs/go-ipfs v0.8.0
-	github.com/ipfs/go-ipfs-api v0.2.0
-	github.com/ipfs/go-ipfs-config v0.12.0
-	github.com/ipfs/go-ipfs-files v0.0.8
-	github.com/ipfs/interface-go-ipfs-core v0.4.0
 	github.com/jdeng/goheif v0.0.0-20200323230657-a0d6a8b3e68f
 	github.com/jehiah/go-strftime v0.0.0-20171201141054-1d33003b3869 // indirect
 	github.com/jonboulle/clockwork v0.3.0 // indirect
 	github.com/k3a/html2text v1.0.7
 	github.com/kettek/apng v0.0.0-20191108220231-414630eed80f
+	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lestrrat/go-envload v0.0.0-20180220120943-6ed08b54a570 // indirect
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
 	github.com/lestrrat/go-strftime v0.0.0-20180220042222-ba3bf9c1d042 // indirect
@@ -67,10 +62,12 @@ require (
 	github.com/prometheus/client_golang v1.13.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
 	github.com/rubyist/circuitbreaker v2.2.1+incompatible
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd // indirect
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/saintfish/chardet v0.0.0-20120816061221-3af4cd4741ca
 	github.com/sebest/xff v0.0.0-20210106013422-671bd2870b3a
 	github.com/sirupsen/logrus v1.8.0
+	github.com/smartystreets/assertions v1.0.1 // indirect
 	github.com/tebeka/strftime v0.1.3 // indirect
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/image v0.0.0-20210220032944-ac19c3e999fb
