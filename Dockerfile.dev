@@ -1,6 +1,6 @@
 # ---- Stage 0 ----
 # Builds media repo binaries
-FROM golang:1.16-alpine AS development
+FROM golang:1.19-alpine AS development
 
 # Install build dependencies
 RUN apk add --no-cache git musl-dev dos2unix build-base
