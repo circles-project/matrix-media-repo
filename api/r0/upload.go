@@ -126,6 +126,17 @@ func UploadComplete(r *http.Request, rctx rcontext.RequestContext, user api.User
 		return api.InternalServerError("unexpected error processing upload")
 	}
 
+	// Check min/max file sizes against configured limits
+	// TODO: cleanup the files form the datastore here, this just leaves them, but *after* we've
+	// updated the database so we can find them.
+	if upload_controller.IsRequestTooLarge(info.Size, "", rctx) {
+		return api.RequestTooLarge()
+	}
+
+	if upload_controller.IsRequestTooSmall(info.Size, "", rctx) {
+		return api.RequestTooSmall()
+	}
+
 	// Kick off a background goroutine to download the file, hash contents and update the DB
 	go func() {
 		f, err := ds.DownloadFile(media.Location)
