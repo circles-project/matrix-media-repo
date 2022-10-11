@@ -6,6 +6,7 @@ require (
 	github.com/DavidHuie/gomigrate v0.0.0-20190826182718-4adc4b3de142
 	github.com/Jeffail/tunny v0.0.0-20210126202424-1b37d6cb867a
 	github.com/PuerkitoBio/goquery v1.6.1
+	github.com/adrium/goheif v0.0.0-20210309200126-b184a7b446fa
 	github.com/alioygur/is v1.0.3
 	github.com/bep/debounce v1.2.0
 	github.com/buckket/go-blurhash v1.1.0
@@ -28,7 +29,6 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/go-hclog v0.15.0
 	github.com/hashicorp/go-plugin v1.4.0
-	github.com/jdeng/goheif v0.0.0-20200323230657-a0d6a8b3e68f
 	github.com/k3a/html2text v1.0.7
 	github.com/kettek/apng v0.0.0-20191108220231-414630eed80f
 	github.com/lestrrat/go-file-rotatelogs v0.0.0-20180223000712-d3151e2a480f
