@@ -274,7 +274,11 @@ func (s *s3Datastore) GetDownloadURL(ctx rcontext.RequestContext, location strin
 	logrus.Info("getting pre-signed download URL for object from bucket ", s.bucket, ": ", location)
 
 	reqParams := make(url.Values)
-	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	// TODO: dedupe this against the route_handler.go code (whilst refactoring the mess over there)
+	reqParams.Set(
+		"response-content-disposition",
+		fmt.Sprintf("attachment; filename=\"%s\"", url.QueryEscape(filename)),
+	)
 
 	expiryTime := time.Duration(ctx.Config.Features.MSC2246Async.AsyncUploadExpirySecs) * time.Second
 
