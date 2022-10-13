@@ -29,11 +29,15 @@ type s3Datastore struct {
 	conf         config.DatastoreConfig
 	dsId         string
 	client       *minio.Client
+
 	bucket       string
 	region       string
 	tempPath     string
 	storageClass string
 	prefixLength int
+
+	RedirectDownloads bool
+	RedirectUploads bool
 }
 
 func GetOrCreateS3Datastore(dsId string, conf config.DatastoreConfig) (*s3Datastore, error) {
@@ -70,6 +74,8 @@ func GetOrCreateS3Datastore(dsId string, conf config.DatastoreConfig) (*s3Datast
 		prefixLength, _ = strconv.Atoi(prefixLengthStr)
 	}
 
+	redirectDownloads, _ := strconv.ParseBool(conf.Options["redirectDownloads"])
+	redirectUploads, _ := strconv.ParseBool(conf.Options["redirectUploads"])
 	var s3client *minio.Client
 	var err error
 
@@ -91,6 +97,9 @@ func GetOrCreateS3Datastore(dsId string, conf config.DatastoreConfig) (*s3Datast
 		tempPath:     tempPath,
 		storageClass: storageClass,
 		prefixLength: prefixLength,
+		// Public feature flags
+		RedirectDownloads: redirectDownloads,
+		RedirectUploads: redirectUploads,
 	}
 	stores[dsId] = s3ds
 	return s3ds, nil

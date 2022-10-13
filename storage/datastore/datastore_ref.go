@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
 
 	"github.com/minio/minio-go/v6"
 	"github.com/sirupsen/logrus"
@@ -174,8 +173,12 @@ func (d *DatastoreRef) ShouldRedirectDownload() bool {
 		return false
 	}
 
-	redirectDownloads, _ := strconv.ParseBool(d.config.Options["redirectDownloads"])
-	return redirectDownloads
+	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
+	if err != nil {
+		return false
+	}
+
+	return s3.RedirectDownloads
 }
 
 func (d *DatastoreRef) ShouldRedirectUpload() bool {
@@ -183,6 +186,10 @@ func (d *DatastoreRef) ShouldRedirectUpload() bool {
 		return false
 	}
 
-	redirectUploads, _ := strconv.ParseBool(d.config.Options["redirectUploads"])
-	return redirectUploads
+	s3, err := ds_s3.GetOrCreateS3Datastore(d.DatastoreId, d.config)
+	if err != nil {
+		return false
+	}
+
+	return s3.RedirectUploads
 }
