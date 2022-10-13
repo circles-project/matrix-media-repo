@@ -35,6 +35,7 @@ type s3Datastore struct {
 	tempPath     string
 	storageClass string
 	prefixLength int
+	publicHostname string
 
 	RedirectDownloads bool
 	RedirectUploads bool
@@ -76,6 +77,9 @@ func GetOrCreateS3Datastore(dsId string, conf config.DatastoreConfig) (*s3Datast
 
 	redirectDownloads, _ := strconv.ParseBool(conf.Options["redirectDownloads"])
 	redirectUploads, _ := strconv.ParseBool(conf.Options["redirectUploads"])
+	// Public hostname for redirects when available
+	publicHostname, _ := conf.Options["publicHostname"]
+
 	var s3client *minio.Client
 	var err error
 
@@ -97,6 +101,7 @@ func GetOrCreateS3Datastore(dsId string, conf config.DatastoreConfig) (*s3Datast
 		tempPath:     tempPath,
 		storageClass: storageClass,
 		prefixLength: prefixLength,
+		publicHostname: publicHostname,
 		// Public feature flags
 		RedirectDownloads: redirectDownloads,
 		RedirectUploads: redirectUploads,
@@ -280,7 +285,12 @@ func (s *s3Datastore) DownloadObject(location string) (io.ReadCloser, error) {
 }
 
 func (s *s3Datastore) GetDownloadURL(ctx rcontext.RequestContext, location string, filename string) (string, error) {
-	logrus.Info("getting pre-signed download URL for object from bucket ", s.bucket, ": ", location)
+	if s.publicHostname != "" {
+		ctx.Log.Info("Generating public URL for object from bucket ", s.bucket, ": ", location)
+		return "https://" + s.publicHostname + "/" + location, nil
+	}
+
+	ctx.Log.Info("Requesting pre-signed download URL for object from bucket ", s.bucket, ": ", location)
 
 	reqParams := make(url.Values)
 	// TODO: dedupe this against the route_handler.go code (whilst refactoring the mess over there)
