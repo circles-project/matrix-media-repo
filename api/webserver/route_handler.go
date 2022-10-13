@@ -74,7 +74,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"requestId":          h.reqCounter.GetNextId(),
 		"remoteAddr":         r.RemoteAddr,
 	})
-	contextLog.Info("Received request")
+	contextLog.Debug("Received request")
 
 	// Send CORS and other basic headers
 	w.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
@@ -89,7 +89,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var res interface{} = api.AuthFailed()
 	var rctx rcontext.RequestContext
 	if util.IsServerOurs(r.Host) || h.ignoreHost {
-		contextLog.Info("Host is valid - processing request")
+		contextLog.Debug("Host is valid - processing request")
 		cfg := config.GetDomain(r.Host)
 		if h.ignoreHost {
 			dc := config.DomainConfigFrom(*config.Get())
