@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 * The default leaky bucket capacity has changed from 300mb to 500mb, allowing for more downloads to go through. The drain rate and overflow limit are unchanged (5mb/minute and 100mb respectively).
 * The `POST /_matrix/media/unstable/admin/purge/<server>/<media id>` endpoint now supports batch purging of media ids.
+* Added a user quota API where server administrators can programmatically get/set quotas for individual users.
 
 ## [1.3.6] - July 10, 2024
 
