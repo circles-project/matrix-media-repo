@@ -1,6 +1,7 @@
 # ---- Stage 0 ----
 # Builds media repo binaries
 FROM golang:1.21-alpine3.18 AS builder
+ARG GOPROXY=direct
 
 # Install build dependencies
 RUN apk add --no-cache git musl-dev dos2unix build-base libde265-dev
