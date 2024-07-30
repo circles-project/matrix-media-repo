@@ -9,6 +9,8 @@ import (
 	"github.com/t2bot/matrix-media-repo/common/runtime"
 	"github.com/t2bot/matrix-media-repo/database"
 	"github.com/t2bot/matrix-media-repo/errcache"
+	"github.com/t2bot/matrix-media-repo/limits"
+	"github.com/t2bot/matrix-media-repo/matrix"
 	"github.com/t2bot/matrix-media-repo/metrics"
 	"github.com/t2bot/matrix-media-repo/pgo_internal"
 	"github.com/t2bot/matrix-media-repo/plugins"
@@ -28,7 +30,9 @@ func setupReloads() {
 	reloadPluginsOnChan(globals.PluginReloadChan)
 	reloadPoolOnChan(globals.PoolReloadChan)
 	reloadErrorCachesOnChan(globals.ErrorCacheReloadChan)
+	reloadMatrixCachesOnChan(globals.MatrixCachesReloadChan)
 	reloadPGOOnChan(globals.PGOReloadChan)
+	reloadBucketsOnChan(globals.BucketsReloadChan)
 }
 
 func stopReloads() {
@@ -53,8 +57,12 @@ func stopReloads() {
 	globals.PoolReloadChan <- false
 	logrus.Debug("Stopping ErrorCacheReloadChan")
 	globals.ErrorCacheReloadChan <- false
+	logrus.Debug("Stopping MatrixCachesReloadChan")
+	globals.MatrixCachesReloadChan <- false
 	logrus.Debug("Stopping PGOReloadChan")
 	globals.PGOReloadChan <- false
+	logrus.Debug("Stopping BucketsReloadChan")
+	globals.BucketsReloadChan <- false
 }
 
 func reloadWebOnChan(reloadChan chan bool) {
@@ -203,6 +211,20 @@ func reloadErrorCachesOnChan(reloadChan chan bool) {
 	}()
 }
 
+func reloadMatrixCachesOnChan(reloadChan chan bool) {
+	go func() {
+		defer close(reloadChan)
+		for {
+			shouldReload := <-reloadChan
+			if shouldReload {
+				matrix.FlushSigningKeyCache()
+			} else {
+				return // received stop
+			}
+		}
+	}()
+}
+
 func reloadPGOOnChan(reloadChan chan bool) {
 	go func() {
 		defer close(reloadChan)
@@ -214,6 +236,20 @@ func reloadPGOOnChan(reloadChan chan bool) {
 				} else {
 					pgo_internal.Disable()
 				}
+			} else {
+				return // received stop
+			}
+		}
+	}()
+}
+
+func reloadBucketsOnChan(reloadChan chan bool) {
+	go func() {
+		defer close(reloadChan)
+		for {
+			shouldReload := <-reloadChan
+			if shouldReload {
+				limits.ExpandBuckets()
 			} else {
 				return // received stop
 			}

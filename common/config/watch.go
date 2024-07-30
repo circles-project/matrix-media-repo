@@ -61,9 +61,12 @@ func onFileChanged() {
 	PrintDomainInfo()
 	CheckDeprecations()
 
-	logrus.Info("Reloading pool & cache configuration")
+	logrus.Info("Reloading pool & error cache configurations")
 	globals.PoolReloadChan <- true
 	globals.ErrorCacheReloadChan <- true
+
+	logrus.Info("Reloading matrix caches")
+	globals.MatrixCachesReloadChan <- true
 
 	bindAddressChange := configNew.General.BindAddress != configNow.General.BindAddress
 	bindPortChange := configNew.General.Port != configNow.General.Port
@@ -101,6 +104,9 @@ func onFileChanged() {
 		logrus.Warn("Cache configuration changed - reloading")
 		globals.CacheReplaceChan <- true
 	}
+
+	// Always expand buckets (could be a no-op)
+	globals.BucketsReloadChan <- true
 
 	// Always flush the access token cache
 	logrus.Warn("Flushing access token cache")

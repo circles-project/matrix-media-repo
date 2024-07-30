@@ -24,14 +24,15 @@ func NewDefaultMainConfig() MainRepoConfig {
 	return MainRepoConfig{
 		MinimumRepoConfig: NewDefaultMinimumRepoConfig(),
 		General: GeneralConfig{
-			BindAddress:      "127.0.0.1",
-			Port:             8000,
-			LogDirectory:     "logs",
-			LogColors:        false,
-			JsonLogs:         false,
-			LogLevel:         "info",
-			TrustAnyForward:  false,
-			UseForwardedHost: true,
+			BindAddress:                "127.0.0.1",
+			Port:                       8000,
+			LogDirectory:               "logs",
+			LogColors:                  false,
+			JsonLogs:                   false,
+			LogLevel:                   "info",
+			TrustAnyForward:            false,
+			UseForwardedHost:           true,
+			FreezeUnauthenticatedMedia: false,
 		},
 		Database: DatabaseConfig{
 			Postgres: "postgres://your_username:your_password@localhost/database_name?sslmode=disable",
@@ -113,6 +114,13 @@ func NewDefaultMainConfig() MainRepoConfig {
 			Enabled:           true,
 			RequestsPerSecond: 5,
 			BurstCount:        10,
+			Buckets: RateLimitBucketsConfig{
+				Downloads: RateLimitDownloadBucketConfig{
+					CapacityBytes:       524288000, // 500mb
+					DrainBytesPerMinute: 5242880,   // 5mb
+					OverflowLimitBytes:  104857600, // 100mb
+				},
+			},
 		},
 		Metrics: MetricsConfig{
 			Enabled:     false,

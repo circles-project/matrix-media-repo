@@ -7,14 +7,17 @@ import (
 	"io"
 
 	"github.com/getsentry/sentry-go"
+	"github.com/t2bot/go-leaky-bucket"
 	sfstreams "github.com/t2bot/go-singleflight-streams"
 	"github.com/t2bot/matrix-media-repo/common"
 	"github.com/t2bot/matrix-media-repo/common/rcontext"
 	"github.com/t2bot/matrix-media-repo/database"
+	"github.com/t2bot/matrix-media-repo/limits"
 	"github.com/t2bot/matrix-media-repo/pipelines/_steps/download"
 	"github.com/t2bot/matrix-media-repo/pipelines/_steps/quarantine"
 	"github.com/t2bot/matrix-media-repo/pipelines/_steps/thumbnails"
 	"github.com/t2bot/matrix-media-repo/pipelines/pipeline_download"
+	"github.com/t2bot/matrix-media-repo/restrictions"
 	"github.com/t2bot/matrix-media-repo/util/readers"
 	"github.com/t2bot/matrix-media-repo/util/sfcache"
 )
@@ -44,10 +47,18 @@ func (o ThumbnailOpts) ImpliedDownloadOpts() pipeline_download.DownloadOpts {
 		FetchRemoteIfNeeded: o.FetchRemoteIfNeeded,
 		BlockForReadUntil:   o.BlockForReadUntil,
 		RecordOnly:          true,
+		AuthProvided:        o.AuthProvided,
 	}
 }
 
 func Execute(ctx rcontext.RequestContext, origin string, mediaId string, opts ThumbnailOpts) (*database.DbThumbnail, io.ReadCloser, error) {
+	// Step 0: Check restrictions
+	if requiresAuth, err := restrictions.DoesMediaRequireAuth(ctx, origin, mediaId); err != nil {
+		return nil, nil, err
+	} else if requiresAuth && !opts.AuthProvided {
+		return nil, nil, common.ErrRestrictedAuth
+	}
+
 	// Step 1: Fix the request parameters
 	w, h, method, err1 := thumbnails.PickNewDimensions(ctx, opts.Width, opts.Height, opts.Method)
 	if err1 != nil {
@@ -74,6 +85,24 @@ func Execute(ctx rcontext.RequestContext, origin string, mediaId string, opts Th
 		cancel()
 		return nil, nil, err
 	}
+
+	// Check rate limits before moving on much further
+	limitBucket, err := limits.GetBucket(ctx, limits.GetRequestIP(ctx.Request))
+	if err != nil {
+		cancel()
+		return nil, nil, err
+	}
+	if limitBucket != nil && record != nil && !opts.RecordOnly {
+		if limitErr := limitBucket.Add(record.SizeBytes); limitErr != nil {
+			cancel()
+			if errors.Is(limitErr, leaky.ErrBucketFull) {
+				ctx.Log.Debugf("Rate limited on SizeBytes=%d/%d", record.SizeBytes, limitBucket.Remaining())
+				return nil, nil, common.ErrRateLimitExceeded
+			}
+			return nil, nil, limitErr
+		}
+	}
+
 	r, err, _ := streamSf.Do(sfKey, func() (io.ReadCloser, error) {
 		// Step 4: Get the associated media record (without stream)
 		mediaRecord, dr, err := pipeline_download.Execute(ctx, origin, mediaId, opts.ImpliedDownloadOpts())
@@ -142,6 +171,13 @@ func Execute(ctx rcontext.RequestContext, origin string, mediaId string, opts Th
 	if errors.Is(err, common.ErrMediaQuarantined) || errors.Is(err, common.ErrMediaDimensionsTooSmall) {
 		if r != nil {
 			return nil, readers.NewCancelCloser(r, cancel), err
+		}
+
+		if limitBucket != nil {
+			if limitErr := limitBucket.Drain(record.SizeBytes); limitErr != nil {
+				sentry.CaptureException(limitErr)
+				ctx.Log.Warn("Non-fatal error during bucket drain:", limitErr)
+			}
 		}
 
 		cancel()

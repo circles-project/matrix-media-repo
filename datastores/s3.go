@@ -9,6 +9,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/sirupsen/logrus"
 	"github.com/t2bot/matrix-media-repo/common/config"
 	"github.com/t2bot/matrix-media-repo/common/rcontext"
 )
@@ -21,6 +22,8 @@ type s3 struct {
 	bucket             string
 	publicBaseUrl      string
 	redirectWhenCached bool
+	prefixLength       int
+	multipartUploads   bool
 }
 
 func ResetS3Clients() {
@@ -41,6 +44,8 @@ func getS3(ds config.DatastoreConfig) (*s3, error) {
 	useSslStr, hasSsl := ds.Options["ssl"]
 	publicBaseUrl := ds.Options["publicBaseUrl"]
 	redirectWhenCachedStr, hasRedirectWhenCached := ds.Options["redirectWhenCached"]
+	prefixLengthStr, hasPrefixLength := ds.Options["prefixLength"]
+	useMultipartStr, hasMultipart := ds.Options["multipartUploads"]
 
 	if !hasStorageClass {
 		storageClass = "STANDARD"
@@ -51,9 +56,25 @@ func getS3(ds config.DatastoreConfig) (*s3, error) {
 		useSsl, _ = strconv.ParseBool(useSslStr)
 	}
 
+	useMultipart := true
+	if hasMultipart && useMultipartStr != "" {
+		useMultipart, _ = strconv.ParseBool(useMultipartStr)
+	}
+
 	redirectWhenCached := false
 	if hasRedirectWhenCached && redirectWhenCachedStr != "" {
 		redirectWhenCached, _ = strconv.ParseBool(redirectWhenCachedStr)
+	}
+
+	prefixLength := 0
+	if hasPrefixLength && prefixLengthStr != "" {
+		prefixLength, _ = strconv.Atoi(prefixLengthStr)
+		if prefixLength < 0 {
+			prefixLength = 0
+		}
+		if prefixLength > 16 {
+			logrus.Warnf("Prefix length %d is greater than 16 for datastore %s - this may cause future incompatibilities", prefixLength, ds.Id)
+		}
 	}
 
 	var err error
@@ -73,6 +94,8 @@ func getS3(ds config.DatastoreConfig) (*s3, error) {
 		bucket:             bucket,
 		publicBaseUrl:      publicBaseUrl,
 		redirectWhenCached: redirectWhenCached,
+		prefixLength:       prefixLength,
+		multipartUploads:   useMultipart,
 	}
 	s3clients.Store(ds.Id, s3c)
 	return s3c, nil

@@ -78,7 +78,7 @@ func main() {
 
 		ctx.Log.Infof("Copying %s", mxc)
 		directories := path.Join(cfg.ExportPath, "local_content", record.MediaId[0:2], record.MediaId[2:4])
-		err = os.MkdirAll(directories, 0655)
+		err = os.MkdirAll(directories, 0755)
 		if err != nil {
 			return err
 		}
@@ -119,6 +119,12 @@ func main() {
 
 				thumb, err := thumbnailing.GenerateThumbnail(src, record.ContentType, s.width, s.height, s.method, false, ctx)
 				if err != nil {
+					if thumb.Reader != nil {
+						err2 := thumb.Reader.Close()
+						if err2 != nil {
+							ctx.Log.Warn("Non-fatal error cleaning up thumbnail stream: ", err2)
+						}
+					}
 					ctx.Log.Debug("Error generating thumbnail (you can probably ignore this). ", s, err)
 					return
 				}
@@ -134,7 +140,7 @@ func main() {
 				dirLock.Lock()
 				defer dirLock.Unlock()
 				thumbDir := path.Join(cfg.ExportPath, "local_thumbnails", record.MediaId[0:2], record.MediaId[2:4], record.MediaId[4:])
-				err = os.MkdirAll(thumbDir, 0655)
+				err = os.MkdirAll(thumbDir, 0755)
 				if err != nil {
 					ctx.Log.Warn("Error creating thumbnail directories. ", s, err)
 					return
