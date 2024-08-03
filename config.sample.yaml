@@ -238,6 +238,18 @@ datastores:
       # particularly for performance concerns. If you are using AWS, DigitalOcean Spaces, or
       # MinIO, you do not need to set or change this option - your environment is supported.
       #multipartUploads: true
+      # Some S3 providers require S3 client setup using a specific bucket lookup style.
+      # Valid options are 'DNS', 'Path', and 'Auto'. Defaults to Auto
+      #bucketLookupStyle: "Auto"
+      # Set to true to redirect download requests with a presigned url. Defaults to false
+      #redirectPresignURL: true
+      # Sets the expiration time when presigned url will be invalided after creation.
+      # Valid units include "ns", "us", "ms", "s", "m", "h". Range can be as high as 7 days.
+      # Defaults to "1h"
+      #redirectPresignURLExpireTime: "1h"
+      # Specifies a modified domain to redirect to when using presigned urls (such as redirecting to a CDN).
+      #redirectDomain: "mycdn.example.org"
+
 
 # Options for controlling archives. Archives are exports of a particular user's content for
 # the purpose of GDPR or moving media to a different server.

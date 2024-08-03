@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -17,13 +18,16 @@ import (
 var s3clients = &sync.Map{}
 
 type s3 struct {
-	client             *minio.Client
-	storageClass       string
-	bucket             string
-	publicBaseUrl      string
-	redirectWhenCached bool
-	prefixLength       int
-	multipartUploads   bool
+	client                       *minio.Client
+	storageClass                 string
+	bucket                       string
+	publicBaseUrl                string
+	redirectWhenCached           bool
+	prefixLength                 int
+	multipartUploads             bool
+	redirectDomain               string
+	redirectPresignURL           bool
+	redirectPresignURLExpireTime time.Duration
 }
 
 func ResetS3Clients() {
@@ -46,6 +50,10 @@ func getS3(ds config.DatastoreConfig) (*s3, error) {
 	redirectWhenCachedStr, hasRedirectWhenCached := ds.Options["redirectWhenCached"]
 	prefixLengthStr, hasPrefixLength := ds.Options["prefixLength"]
 	useMultipartStr, hasMultipart := ds.Options["multipartUploads"]
+	bucketLookupStyle, hasBucketLookupStyle := ds.Options["bucketLookupStyle"]
+	redirectDomain := ds.Options["redirectDomain"]
+	useRedirectPresignURLStr, hasRedirectPresignURL := ds.Options["redirectPresignURL"]
+	redirectPresignURLExpireTimeStr, hasRedirectPresignURLExpireTime := ds.Options["redirectPresignURLExpireTime"]
 
 	if !hasStorageClass {
 		storageClass = "STANDARD"
@@ -77,25 +85,60 @@ func getS3(ds config.DatastoreConfig) (*s3, error) {
 		}
 	}
 
+	bucketLookup := minio.BucketLookupAuto
+	if hasBucketLookupStyle {
+		bucketLookupTypeMap := map[string]minio.BucketLookupType{
+			"auto": minio.BucketLookupAuto,
+			"dns":  minio.BucketLookupDNS,
+			"path": minio.BucketLookupPath,
+		}
+
+		bucketLookupResult, ok := bucketLookupTypeMap[strings.ToLower(bucketLookupStyle)]
+
+		if ok {
+			bucketLookup = bucketLookupResult
+		}
+	}
+
+	useRedirectPresignURL := false
+	if hasRedirectPresignURL && useRedirectPresignURLStr != "" {
+		useRedirectPresignURL, _ = strconv.ParseBool(useRedirectPresignURLStr)
+	}
+
+	redirectPresignURLExpireTime := time.Hour * 1
+	if hasRedirectPresignURLExpireTime && redirectPresignURLExpireTimeStr != "" {
+		time, err := time.ParseDuration(redirectPresignURLExpireTimeStr)
+
+		if err != nil {
+			logrus.Warnf("Unknown redirectPresignURLExpireTime: %s - using default 1hr", redirectPresignURLExpireTimeStr)
+		} else {
+			redirectPresignURLExpireTime = time
+		}
+	}
+
 	var err error
 	var client *minio.Client
 	client, err = minio.New(endpoint, &minio.Options{
-		Region: region,
-		Secure: useSsl,
-		Creds:  credentials.NewStaticV4(accessKeyId, accessSecret, ""),
+		Region:       region,
+		Secure:       useSsl,
+		Creds:        credentials.NewStaticV4(accessKeyId, accessSecret, ""),
+		BucketLookup: bucketLookup,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	s3c := &s3{
-		client:             client,
-		storageClass:       storageClass,
-		bucket:             bucket,
-		publicBaseUrl:      publicBaseUrl,
-		redirectWhenCached: redirectWhenCached,
-		prefixLength:       prefixLength,
-		multipartUploads:   useMultipart,
+		client:                       client,
+		storageClass:                 storageClass,
+		bucket:                       bucket,
+		publicBaseUrl:                publicBaseUrl,
+		redirectWhenCached:           redirectWhenCached,
+		prefixLength:                 prefixLength,
+		multipartUploads:             useMultipart,
+		redirectDomain:               redirectDomain,
+		redirectPresignURL:           useRedirectPresignURL,
+		redirectPresignURLExpireTime: redirectPresignURLExpireTime,
 	}
 	s3clients.Store(ds.Id, s3c)
 	return s3c, nil
